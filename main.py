@@ -1,236 +1,192 @@
-import pygame
+import tkinter as tk
+from PIL import Image, ImageTk
 import random
-import time
 
-# --- Game Configuration ---
-# The list of items to match: (word, "picture" representation)
-# In Pygame, we use text representations for both words and pictures (emojis/short names).
-GAME_ITEMS = {
-    "Apple": "🍎 (Fruit)",
-    "Car": "🚗 (Vehicle)",
-    "Dog": "🐕 (Pet)",
-    "Sun": "☀️ (Sky)",
-    "Tree": "🌳 (Plant)",
-    "Book": "📚 (Reading)",
-    "Pizza": "🍕 (Food)",
-    "Cat": "🐈 (Feline)",
-}
+# ---------------- STATES ------------------
+class GameState:
+    MENU = "menu"
+    LEVEL1 = "level1"
+    LEVEL1_PLAY = "level1_play"
 
-# --- Pygame Initialization ---
-pygame.init()
+class GameStateManager:
+    def __init__(self, root):
+        self.state = GameState.MENU
+        self.root = root
 
-# Define colors
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-GRAY = (200, 200, 200)
-BLUE = (50, 50, 200)
-GREEN = (34, 197, 94)
-RED = (255, 99, 71)
+    def change_state(self, new_state):
+        self.state = new_state
+        update_screen()
 
-# Screen setup
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
-SCREEN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Pygame Picture Word Match")
 
-# Fonts
-FONT_SIZE = 24
-CARD_FONT = pygame.font.Font(None, FONT_SIZE)
-TITLE_FONT = pygame.font.Font(None, 48)
+# Main Window
+root = tk.Tk()
+root.title("Button Game")
+root.geometry("900x1000")
 
-# Card dimensions
-CARD_WIDTH = 150
-CARD_HEIGHT = 80
-CARD_MARGIN = 15
-GRID_COLS = 4  # 8 pairs * 2 cards = 16 cards total (4x4 grid)
-GRID_ROWS = 4
+state_manager = GameStateManager(root)
 
-# --- Card Class Definition ---
-class Card:
-    """Represents a single card in the game."""
-    def __init__(self, rect, value, match_key, card_type):
-        self.rect = rect
-        self.value = value
-        self.match_key = match_key  # The word used for matching
-        self.type = card_type       # 'word' or 'picture'
-        self.is_flipped = False
-        self.is_matched = False
-        self.color = GRAY
-        self.flipped_color = BLUE
-        self.matched_color = GREEN
+# ---------------- IMAGES ------------------
+menu_bg_img = ImageTk.PhotoImage(Image.open("background.jpeg").resize((900, 1000)))
+level1_bg_img = ImageTk.PhotoImage(Image.open("background2.jpeg").resize((900, 1000)))
+level1_play_bg_img = ImageTk.PhotoImage(Image.open("leve1.jpeg").resize((900, 1000)))
 
-    def draw(self, surface):
-        """Draws the card on the screen."""
-        if self.is_matched:
-            # Draw matched cards with green border
-            pygame.draw.rect(surface, self.matched_color, self.rect, 0, 8)
-            pygame.draw.rect(surface, GREEN, self.rect, 5, 8)
-            # Display value on matched cards
-            text_surface = CARD_FONT.render(self.value, True, BLACK)
-            text_rect = text_surface.get_rect(center=self.rect.center)
-            surface.blit(text_surface, text_rect)
-        elif self.is_flipped:
-            # Draw flipped cards (showing value)
-            pygame.draw.rect(surface, self.flipped_color, self.rect, 0, 8)
-            text_surface = CARD_FONT.render(self.value, True, WHITE)
-            text_rect = text_surface.get_rect(center=self.rect.center)
-            surface.blit(text_surface, text_rect)
-        else:
-            # Draw unflipped cards (showing back)
-            pygame.draw.rect(surface, self.color, self.rect, 0, 8)
-            # Draw a question mark or card type on the back
-            back_text = CARD_FONT.render("?", True, BLACK)
-            text_rect = back_text.get_rect(center=self.rect.center)
-            surface.blit(back_text, text_rect)
+button_img = ImageTk.PhotoImage(
+    Image.open("Gemini_Generated_Image_3xbhm83xbhm83xbh (1).png").resize((400, 150))
+)
 
-    def handle_event(self, event):
-        """Handles mouse clicks on the card."""
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            if self.rect.collidepoint(event.pos) and not self.is_flipped and not self.is_matched:
-                self.is_flipped = True
-                return True # Indicate that the card was successfully flipped
-        return False
+# Card back
+card_back = ImageTk.PhotoImage(Image.open("background.jpeg").resize((150, 150)))
 
-# --- Game Functions ---
+# Memory game variables
+cards = []
+buttons = []
+first_pick = None
+second_pick = None
+matched_pairs = 0
+attempts = 0
 
-def create_card_set():
-    """Generates and shuffles all card objects."""
-    cards = []
-    
-    # Calculate starting position for centering the grid
-    grid_width = GRID_COLS * CARD_WIDTH + (GRID_COLS - 1) * CARD_MARGIN
-    grid_height = GRID_ROWS * CARD_HEIGHT + (GRID_ROWS - 1) * CARD_MARGIN
-    start_x = (SCREEN_WIDTH - grid_width) // 2
-    start_y = (SCREEN_HEIGHT - grid_height) // 2
 
-    # Create card objects
-    temp_card_list = []
-    for word, picture in GAME_ITEMS.items():
-        # Word Card
-        temp_card_list.append({
-            'value': word,
-            'match_key': word,
-            'type': 'word'
-        })
-        # Picture Card
-        temp_card_list.append({
-            'value': picture,
-            'match_key': word,
-            'type': 'picture'
-        })
-        
-    random.shuffle(temp_card_list)
+# ---------------- WIDGETS ------------------
+canvas = tk.Canvas(root, width=900, height=1000)
+canvas.pack()
 
-    # Assign positions and create Card instances
-    for i, data in enumerate(temp_card_list):
-        row = i // GRID_COLS
-        col = i % GRID_COLS
-        
-        x = start_x + col * (CARD_WIDTH + CARD_MARGIN)
-        y = start_y + row * (CARD_HEIGHT + CARD_MARGIN)
-        
-        rect = pygame.Rect(x, y, CARD_WIDTH, CARD_HEIGHT)
-        cards.append(Card(rect, data['value'], data['match_key'], data['type']))
-        
-    return cards
+def start_game():
+    state_manager.change_state(GameState.LEVEL1)
 
-def draw_info(surface, matches, attempts):
-    """Draws the score and attempts."""
-    total_pairs = len(GAME_ITEMS)
-    score_text = CARD_FONT.render(f"Matches: {matches}/{total_pairs}", True, BLACK)
-    attempts_text = CARD_FONT.render(f"Attempts: {attempts}", True, BLACK)
-    
-    # Draw title
-    title_surface = TITLE_FONT.render("Picture Word Match Game", True, BLACK)
-    title_rect = title_surface.get_rect(center=(SCREEN_WIDTH // 2, 50))
-    surface.blit(title_surface, title_rect)
-    
-    # Draw stats
-    surface.blit(score_text, (20, 100))
-    surface.blit(attempts_text, (SCREEN_WIDTH - attempts_text.get_width() - 20, 100))
+def begin_level1():
+    state_manager.change_state(GameState.LEVEL1_PLAY)
 
-# --- Main Game Loop ---
-def main():
-    running = True
-    clock = pygame.time.Clock()
+start_button = tk.Button(root, image=button_img, command=start_game, borderwidth=0)
+level1_start_button = tk.Button(root, text="Start Level 1", command=begin_level1,
+                                font=("Arial", 24))
 
-    all_cards = create_card_set()
-    flipped_cards = []
-    matches_found = 0
+
+# -----------------------------------------------------
+#               MEMORY GAME LOGIC
+# -----------------------------------------------------
+
+def setup_memory_game():
+    global cards, buttons, first_pick, second_pick, matched_pairs, attempts, attempt_text, card_images
+
+    first_pick = None
+    second_pick = None
+    matched_pairs = 0
     attempts = 0
-    game_locked = False
-    lock_timer = 0
+    buttons.clear()
 
-    while running:
-        # Event handling
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            
-            # Allow 'Q' key to quit the game
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_q:
-                running = False
-            
-            if not game_locked:
-                for card in all_cards:
-                    if card.handle_event(event):
-                        # A card was flipped
-                        flipped_cards.append(card)
-                        
-                        if len(flipped_cards) == 2:
-                            attempts += 1
-                            game_locked = True
-                            lock_timer = pygame.time.get_ticks()
+    # Load images one time
+    img_earth = ImageTk.PhotoImage(Image.open("earth.jpeg").resize((150,150)))
+    img_blue  = ImageTk.PhotoImage(Image.open("bleue.jpeg").resize((150,150)))
+    img_red   = ImageTk.PhotoImage(Image.open("red.jpeg").resize((150,150)))
+    img_sun   = ImageTk.PhotoImage(Image.open("sun.jpeg").resize((150,150)))
 
-        # Check for match when two cards are flipped
-        if game_locked and (pygame.time.get_ticks() - lock_timer > 1200): # Check after 1.2 seconds
-            card1, card2 = flipped_cards[0], flipped_cards[1]
-            
-            # Check conditions for a valid match: same key AND different types (word vs picture)
-            if card1.match_key == card2.match_key and card1.type != card2.type:
-                card1.is_matched = True
-                card2.is_matched = True
-                matches_found += 1
-                # Make matched cards bright green immediately
-                card1.flipped_color = GREEN 
-                card2.flipped_color = GREEN
-            else:
-                # If no match, flip them back
-                card1.is_flipped = False
-                card2.is_flipped = False
+    # Store image objects in index order
+    card_images = [img_earth, img_blue, img_red, img_sun]
 
-            # Reset state for the next turn
-            flipped_cards = []
-            game_locked = False
-        
-        # --- Drawing ---
-        SCREEN.fill(WHITE)
-        
-        # Draw all cards
-        for card in all_cards:
-            card.draw(SCREEN)
+    # Make a list of IDs (0–3 repeated 4 times → 16 cards)
+    card_ids = list(range(4)) * 4  # 4 unique images × 4 copies = 16 cards
 
-        # Draw info
-        draw_info(SCREEN, matches_found, attempts)
+    random.shuffle(card_ids)
 
-        # Check for win condition
-        if matches_found == len(GAME_ITEMS):
-            win_text = TITLE_FONT.render("🎉 YOU WON!", True, GREEN)
-            win_rect = win_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
-            SCREEN.blit(win_text, win_rect)
+    cards = card_ids  # store IDs instead of PhotoImage
 
-            # Add instructions on how to close
-            close_text = CARD_FONT.render("Press 'Q' or close the window (X) to exit.", True, BLACK)
-            close_rect = close_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50))
-            SCREEN.blit(close_text, close_rect)
-        
-        # Update the full display
-        pygame.display.flip()
-        
-        # Cap the frame rate
-        clock.tick(60)
+    # Draw attempt counter
+    attempt_text = canvas.create_text(
+        450, 150,
+        text="Attempts: 0",
+        fill="white",
+        font=("Arial", 28)
+    )
 
-    pygame.quit()
 
-if __name__ == "__main__":
-    main()
+
+def flip_card(index):
+    global first_pick, second_pick
+
+    btn = buttons[index]
+
+    if btn["state"] == "disabled":
+        return
+
+    # Show the correct image
+    btn.config(image=card_images[cards[index]], state="disabled")
+
+    if first_pick is None:
+        first_pick = index
+    else:
+        second_pick = index
+        root.after(700, check_match)
+
+
+def check_match():
+    global first_pick, second_pick, matched_pairs, attempts
+
+    i, j = first_pick, second_pick
+
+    # MATCH: same ID
+    if cards[i] == cards[j]:
+        matched_pairs += 1
+
+        if matched_pairs == 8:  # all 16 cards matched
+            canvas.create_text(
+                450, 70,
+                text="🎉 YOU DID IT! 🎉",
+                fill="yellow",
+                font=("Arial", 42)
+            )
+
+    else:
+        attempts += 1
+        canvas.itemconfig(attempt_text, text=f"Attempts: {attempts}")
+
+        buttons[i].config(image=card_back, state="normal")
+        buttons[j].config(image=card_back, state="normal")
+
+    first_pick = None
+    second_pick = None
+
+
+# -----------------------------------------------------
+#                 SCREEN RENDERING
+# -----------------------------------------------------
+def update_screen():
+    canvas.delete("all")
+
+    # ------ MENU ------
+    if state_manager.state == GameState.MENU:
+        canvas.create_image(0, 0, anchor="nw", image=menu_bg_img)
+        canvas.create_window(450, 600, window=start_button)
+
+    # ------ LEVEL 1 ------
+    elif state_manager.state == GameState.LEVEL1:
+        canvas.create_image(0, 0, anchor="nw", image=level1_bg_img)
+        canvas.create_window(450, 800, window=level1_start_button)
+
+    # ------ LEVEL 1 PLAY (MEMORY GAME) ------
+    elif state_manager.state == GameState.LEVEL1_PLAY:
+        canvas.create_image(0, 0, anchor="nw", image=level1_play_bg_img)
+
+        setup_memory_game()
+
+        x_start = 150
+        y_start = 200
+        index = 0
+
+        for row in range(4):
+            for col in range(4):
+                btn = tk.Button(root, image=card_back,
+                                command=lambda i=index: flip_card(i),
+                                borderwidth=0)
+                buttons.append(btn)
+                canvas.create_window(
+                    x_start + col * 170,
+                    y_start + row * 170,
+                    window=btn
+                )
+                index += 1
+
+
+# -----------------------------------------------------
+
+update_screen()
+root.mainloop()

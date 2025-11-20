@@ -1,85 +1,181 @@
-import pygame
-import sys
-
-pygame.init()
-screen = pygame.display.set_mode((900, 1000))
-pygame.display.set_caption("Button!")
-main_font = pygame.font.SysFont("cambria", 50)
+import tkinter as tk
+from PIL import Image, ImageTk
+import random
 
 # ---------------- STATES ------------------
 class GameState:
     MENU = "menu"
     LEVEL1 = "level1"
+    LEVEL1_PLAY = "level1_play"
 
 class GameStateManager:
-    def __init__(self):
+    def __init__(self, root):
         self.state = GameState.MENU
+        self.root = root
 
     def change_state(self, new_state):
         self.state = new_state
-
-state_manager = GameStateManager()
-# ------------------------------------------
-
-# ------------ LOAD RESOURCES ---------------
-background_menu = pygame.image.load("background.jpeg")
-background_level1 = pygame.image.load("background2.jpeg")
-# -------------------------------------------
-
-class Button():
-    def __init__(self, image, x_pos, y_pos, text_input):
-        self.image = image
-        self.rect = self.image.get_rect(center=(x_pos, y_pos))
-        self.text_input = text_input
-        self.text = main_font.render(self.text_input, True, "white")
-        self.text_rect = self.text.get_rect(center=(x_pos, y_pos))
-
-    def update(self):
-        screen.blit(self.image, self.rect)
-        screen.blit(self.text, self.text_rect)
-
-    def checkForInput(self, position):
-        if self.rect.collidepoint(position):
-            print("Button Press!")
-            state_manager.change_state(GameState.LEVEL1)
-
-    def changeColor(self, position):
-        if self.rect.collidepoint(position):
-            self.text = main_font.render(self.text_input, True, "green")
-        else:
-            self.text = main_font.render(self.text_input, True, "white")
+        update_screen()
 
 
-# ---------------- BUTTON -------------------
-button_surface = pygame.image.load("button.png")
-button_surface = pygame.transform.scale(button_surface, (400, 150))
-button = Button(button_surface, 450, 600, "Start Game")
-# -------------------------------------------
+# Main Window
+root = tk.Tk()
+root.title("Button Game")
+root.geometry("900x1000")
 
-while True:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
+state_manager = GameStateManager(root)
 
-        if state_manager.state == GameState.MENU:
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                button.checkForInput(pygame.mouse.get_pos())
+# ---------------- IMAGES ------------------
+menu_bg_img = ImageTk.PhotoImage(Image.open("background.jpeg").resize((900, 1000)))
+level1_bg_img = ImageTk.PhotoImage(Image.open("background2.jpeg").resize((900, 1000)))
+level1_play_bg_img = ImageTk.PhotoImage(Image.open("leve1.jpeg").resize((900, 1000)))
 
-    # ------------- RENDER BY STATE ----------------
+button_img = ImageTk.PhotoImage(
+    Image.open("Gemini_Generated_Image_3xbhm83xbhm83xbh (1).png").resize((400, 150))
+)
+
+# Card back
+card_back = ImageTk.PhotoImage(Image.open("background.jpeg").resize((150, 150)))
+
+# Memory game variables
+cards = []
+buttons = []
+first_pick = None
+second_pick = None
+matched_pairs = 0
+attempts = 0
+
+
+# ---------------- WIDGETS ------------------
+canvas = tk.Canvas(root, width=900, height=1000)
+canvas.pack()
+
+def start_game():
+    state_manager.change_state(GameState.LEVEL1)
+
+def begin_level1():
+    state_manager.change_state(GameState.LEVEL1_PLAY)
+
+start_button = tk.Button(root, image=button_img, command=start_game, borderwidth=0)
+level1_start_button = tk.Button(root, text="Start Level 1", command=begin_level1,
+                                font=("Arial", 24))
+
+
+# -----------------------------------------------------
+#               MEMORY GAME LOGIC
+# -----------------------------------------------------
+
+def setup_memory_game():
+    global cards, buttons, first_pick, second_pick, matched_pairs, attempts
+
+    first_pick = None
+    second_pick = None
+    matched_pairs = 0
+    attempts = 0
+    buttons.clear()
+
+    # Load images for cards
+    img_earth = ImageTk.PhotoImage(Image.open("earth.jpeg").resize((150,150)))
+    img_blue  = ImageTk.PhotoImage(Image.open("bleue.jpeg").resize((150,150)))
+    img_red   = ImageTk.PhotoImage(Image.open("red.jpeg").resize((150,150)))
+    img_sun   = ImageTk.PhotoImage(Image.open("sun.jpeg").resize((150,150)))
+
+    setup_memory_game.images = [img_earth, img_blue, img_red, img_sun]
+
+    # Make 2 copies of each → 8
+    # Then duplicate again → 16
+    card_list = setup_memory_game.images * 2
+    card_list = card_list * 2
+
+    random.shuffle(card_list)
+
+    cards = card_list
+
+
+def flip_card(index):
+    global first_pick, second_pick
+
+    btn = buttons[index]
+
+    # Already revealed?
+    if btn["state"] == "disabled":
+        return
+
+    # Show real image
+    btn.config(image=cards[index], state="disabled")
+
+    if first_pick is None:
+        first_pick = index
+    else:
+        second_pick = index
+        root.after(700, check_match)
+
+
+def check_match():
+    global first_pick, second_pick, matched_pairs, attempts
+
+    i, j = first_pick, second_pick
+
+    if cards[i] == cards[j]:
+        matched_pairs += 1
+
+        if matched_pairs == 8:  # 8 pairs total
+            canvas.create_text(
+                450, 100,
+                text="🎉 CONGRATULATIONS! 🎉",
+                fill="yellow",
+                font=("Arial", 40)
+            )
+    else:
+        attempts += 1
+        buttons[i].config(image=card_back, state="normal")
+        buttons[j].config(image=card_back, state="normal")
+
+    first_pick = None
+    second_pick = None
+
+
+# -----------------------------------------------------
+#                 SCREEN RENDERING
+# -----------------------------------------------------
+def update_screen():
+    canvas.delete("all")
+
+    # ------ MENU ------
     if state_manager.state == GameState.MENU:
-        screen.blit(background_menu, (0, 0))
-        button.changeColor(pygame.mouse.get_pos())
-        button.update()
+        canvas.create_image(0, 0, anchor="nw", image=menu_bg_img)
+        canvas.create_window(450, 600, window=start_button)
 
+    # ------ LEVEL 1 ------
     elif state_manager.state == GameState.LEVEL1:
-        screen.blit(background_level1, (0, 0))
+        canvas.create_image(0, 0, anchor="nw", image=level1_bg_img)
+        canvas.create_window(450, 800, window=level1_start_button)
 
-        # 🔥🔥🔥 LEVEL 1 LOGIC GOES HERE 🔥🔥🔥
-        # Example:
-        # player.update()
-        # enemies.update()
-        # draw_score()
-        # print("level 1 running")
+    # ------ LEVEL 1 PLAY (MEMORY GAME) ------
+    elif state_manager.state == GameState.LEVEL1_PLAY:
+        canvas.create_image(0, 0, anchor="nw", image=level1_play_bg_img)
 
-    pygame.display.update()
+        setup_memory_game()
+
+        x_start = 150
+        y_start = 200
+        index = 0
+
+        for row in range(4):
+            for col in range(4):
+                btn = tk.Button(root, image=card_back,
+                                command=lambda i=index: flip_card(i),
+                                borderwidth=0)
+                buttons.append(btn)
+                canvas.create_window(
+                    x_start + col * 170,
+                    y_start + row * 170,
+                    window=btn
+                )
+                index += 1
+
+
+# -----------------------------------------------------
+
+update_screen()
+root.mainloop()
