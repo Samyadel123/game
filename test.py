@@ -21,7 +21,7 @@ class GameStateManager:
 
 # Main Window
 root = tk.Tk()
-root.title("Button Game")
+root.title("لعبه الذاكره")
 root.geometry("900x1000")
 
 state_manager = GameStateManager(root)
@@ -61,7 +61,7 @@ def begin_level1():
     state_manager.change_state(GameState.LEVEL1_PLAY)
 
 start_button = tk.Button(root, image=button_img, command=start_game, borderwidth=0)
-level1_start_button = tk.Button(root, text="Start Level 1", command=begin_level1,
+level1_start_button = tk.Button(root, text="ابدأ", command=begin_level1,
                                 font=("Arial", 24))
 
 
@@ -127,7 +127,7 @@ def check_match():
         if matched_pairs == 8:  # all 16 cards matched
             # Show trophy image
             canvas.create_image(450, 100, image=cup_img)
-
+    
             # Play clapping sound
             try:
                 winsound.PlaySound("claping.wav", winsound.SND_FILENAME | winsound.SND_ASYNC)
