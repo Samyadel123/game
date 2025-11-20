@@ -66,7 +66,7 @@ level1_start_button = tk.Button(root, text="Start Level 1", command=begin_level1
 # -----------------------------------------------------
 
 def setup_memory_game():
-    global cards, buttons, first_pick, second_pick, matched_pairs, attempts
+    global cards, buttons, first_pick, second_pick, matched_pairs, attempts, attempt_text, card_images
 
     first_pick = None
     second_pick = None
@@ -74,22 +74,30 @@ def setup_memory_game():
     attempts = 0
     buttons.clear()
 
-    # Load images for cards
+    # Load images one time
     img_earth = ImageTk.PhotoImage(Image.open("earth.jpeg").resize((150,150)))
     img_blue  = ImageTk.PhotoImage(Image.open("bleue.jpeg").resize((150,150)))
     img_red   = ImageTk.PhotoImage(Image.open("red.jpeg").resize((150,150)))
     img_sun   = ImageTk.PhotoImage(Image.open("sun.jpeg").resize((150,150)))
 
-    setup_memory_game.images = [img_earth, img_blue, img_red, img_sun]
+    # Store image objects in index order
+    card_images = [img_earth, img_blue, img_red, img_sun]
 
-    # Make 2 copies of each → 8
-    # Then duplicate again → 16
-    card_list = setup_memory_game.images * 2
-    card_list = card_list * 2
+    # Make a list of IDs (0–3 repeated 4 times → 16 cards)
+    card_ids = list(range(4)) * 4  # 4 unique images × 4 copies = 16 cards
 
-    random.shuffle(card_list)
+    random.shuffle(card_ids)
 
-    cards = card_list
+    cards = card_ids  # store IDs instead of PhotoImage
+
+    # Draw attempt counter
+    attempt_text = canvas.create_text(
+        450, 150,
+        text="Attempts: 0",
+        fill="white",
+        font=("Arial", 28)
+    )
+
 
 
 def flip_card(index):
@@ -97,12 +105,11 @@ def flip_card(index):
 
     btn = buttons[index]
 
-    # Already revealed?
     if btn["state"] == "disabled":
         return
 
-    # Show real image
-    btn.config(image=cards[index], state="disabled")
+    # Show the correct image
+    btn.config(image=card_images[cards[index]], state="disabled")
 
     if first_pick is None:
         first_pick = index
@@ -116,18 +123,22 @@ def check_match():
 
     i, j = first_pick, second_pick
 
+    # MATCH: same ID
     if cards[i] == cards[j]:
         matched_pairs += 1
 
-        if matched_pairs == 8:  # 8 pairs total
+        if matched_pairs == 8:  # all 16 cards matched
             canvas.create_text(
-                450, 100,
-                text="🎉 CONGRATULATIONS! 🎉",
+                450, 70,
+                text="🎉 YOU DID IT! 🎉",
                 fill="yellow",
-                font=("Arial", 40)
+                font=("Arial", 42)
             )
+
     else:
         attempts += 1
+        canvas.itemconfig(attempt_text, text=f"Attempts: {attempts}")
+
         buttons[i].config(image=card_back, state="normal")
         buttons[j].config(image=card_back, state="normal")
 

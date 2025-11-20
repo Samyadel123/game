@@ -35,7 +35,7 @@ button_img = ImageTk.PhotoImage(
 )
 
 # Card back
-card_back = ImageTk.PhotoImage(Image.open("background.jpeg").resize((150, 150)))
+card_back = ImageTk.PhotoImage(Image.open("card.jpeg").resize((150, 150)))
 
 # Memory game variables
 cards = []
