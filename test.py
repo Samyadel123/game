@@ -127,7 +127,7 @@ def check_match():
         if matched_pairs == 8:  # all 16 cards matched
             # Show trophy image
             canvas.create_image(450, 100, image=cup_img)
-    
+            
             # Play clapping sound
             try:
                 winsound.PlaySound("claping.wav", winsound.SND_FILENAME | winsound.SND_ASYNC)
